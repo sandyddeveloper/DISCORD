@@ -25,10 +25,11 @@ class FreelancerBot(commands.Bot):
     async def on_ready(self):
         print(f'\U0001F680 Bot is online as {self.user}!')
         try:
-            synced = await self.tree.sync()
-            print(f"\u2705 Synced {len(synced)} commands!")
+            await self.tree.sync()  # Ensure commands are synced with Discord
+            print("\u2705 Commands synced successfully!")
         except Exception as e:
             print(f"\u26A0\uFE0F Error syncing commands: {e}")
+
 
 bot = FreelancerBot()
 
@@ -54,7 +55,7 @@ async def help_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="about_me", description="Learn more about me!")
 async def about_me(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)  
+    await interaction.response.defer()
 
     embed = discord.Embed(
         title="👨‍💻 Meet Santhosh Raj",
@@ -67,7 +68,7 @@ async def about_me(interaction: discord.Interaction):
     embed.set_image(url="https://discordbanners.vercel.app/static/img/banner.gif") 
     embed.set_footer(text="DEVIX Bot | Developed by Santhosh Raj")
 
-    await interaction.followup.send(embed=embed)  
+    await interaction.followup.send(embed=embed, ephemeral=True)  
 
 @bot.tree.command(name="set_profile", description="Set your profile information!")
 async def set_profile(interaction: discord.Interaction, bio: str, skills: str):
