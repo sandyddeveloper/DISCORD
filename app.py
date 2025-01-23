@@ -7,10 +7,6 @@ from flask import Flask
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return "Hello, Flask on Render!"
-
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -304,7 +300,6 @@ async def on_message(message):
     await bot.process_commands(message)
 
 
-if __name__ == "__main__":
-    port = int(os.getenv("PORT"))  
-    app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__": 
+    app.run(host="0.0.0.0", port=8080)
     bot.run(TOKEN)
