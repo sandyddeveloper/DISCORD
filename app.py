@@ -7,6 +7,11 @@ from flask import Flask
 
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return "Welcome to my app"
+
+
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
