@@ -3,7 +3,13 @@ from discord.ext import commands
 import os
 import random
 from dotenv import load_dotenv
+from flask import Flask
 
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Hello, Flask on Render!"
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -53,9 +59,10 @@ async def help_command(interaction: discord.Interaction):
 
 
 
+# 1️⃣ About Me Command (Fixed)
 @bot.tree.command(name="about_me", description="Learn more about me!")
 async def about_me(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(thinking=True)
 
     embed = discord.Embed(
         title="👨‍💻 Meet Santhosh Raj",
@@ -68,32 +75,96 @@ async def about_me(interaction: discord.Interaction):
     embed.set_image(url="https://discordbanners.vercel.app/static/img/banner.gif") 
     embed.set_footer(text="DEVIX Bot | Developed by Santhosh Raj")
 
-    await interaction.followup.send(embed=embed, ephemeral=True)  
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
-@bot.tree.command(name="set_profile", description="Set your profile information!")
-async def set_profile(interaction: discord.Interaction, bio: str, skills: str):
-    bot.user_profiles[interaction.user.id] = {"bio": bio, "skills": skills}
-    await interaction.response.send_message("✅ Profile updated successfully!")
 
-@bot.tree.command(name="view_profile", description="View your profile information!")
+# 2️⃣ Custom User Profiles
+user_profiles = {}
+
+@bot.tree.command(name="set_profile", description="Set your user profile!")
+async def set_profile(interaction: discord.Interaction, bio: str, skills: str, interests: str):
+    user_profiles[interaction.user.id] = {"bio": bio, "skills": skills, "interests": interests}
+    await interaction.response.send_message("✅ Profile updated successfully!", ephemeral=True)
+
+@bot.tree.command(name="view_profile", description="View your profile!")
 async def view_profile(interaction: discord.Interaction):
-    profile = bot.user_profiles.get(interaction.user.id, {"bio": "Not set", "skills": "Not set"})
-    embed = discord.Embed(title=f"👤 {interaction.user.name}'s Profile", color=BOT_COLOR)
-    embed.add_field(name="Bio", value=profile["bio"], inline=False)
-    embed.add_field(name="Skills", value=profile["skills"], inline=False)
-    await interaction.response.send_message(embed=embed)
+    profile = user_profiles.get(interaction.user.id)
+    if not profile:
+        await interaction.response.send_message("❌ No profile found! Use `/set_profile` to create one.", ephemeral=True)
+        return
 
-@bot.tree.command(name="daily_challenge", description="Get a daily coding/design challenge!")
+    embed = discord.Embed(title=f"{interaction.user.name}'s Profile", color=BOT_COLOR)
+    embed.add_field(name="📝 Bio", value=profile["bio"], inline=False)
+    embed.add_field(name="💻 Skills", value=profile["skills"], inline=False)
+    embed.add_field(name="🎯 Interests", value=profile["interests"], inline=False)
+    embed.set_thumbnail(url=interaction.user.avatar.url if interaction.user.avatar else "")
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# 3️⃣ XP & Leveling System
+user_xp = {}
+
+@bot.tree.command(name="xp", description="Check your XP & Level!")
+async def check_xp(interaction: discord.Interaction):
+    xp = user_xp.get(interaction.user.id, 0)
+    level = xp // 100
+    await interaction.response.send_message(f"🌟 **{interaction.user.name}** - XP: {xp}, Level: {level}", ephemeral=True)
+
+def add_xp(user_id, amount):
+    user_xp[user_id] = user_xp.get(user_id, 0) + amount
+
+# 4️⃣ Daily Challenges
+daily_challenges = ["Build a simple REST API", "Design a personal portfolio", "Find 3 freelancing clients", "Learn a new CSS trick!"]
+
+@bot.tree.command(name="daily_challenge", description="Get a new challenge!")
 async def daily_challenge(interaction: discord.Interaction):
-    challenge = random.choice(bot.daily_challenges)
-    embed = discord.Embed(title="💡 Daily Challenge", description=challenge, color=BOT_COLOR)
-    await interaction.response.send_message(embed=embed)
+    challenge = random.choice(daily_challenges)
+    add_xp(interaction.user.id, 20)  # Reward XP
+    await interaction.response.send_message(f"🔥 **Today's Challenge:** {challenge} (+20 XP)", ephemeral=True)
 
-@bot.tree.command(name="xp_status", description="Check your XP level!")
-async def xp_status(interaction: discord.Interaction):
-    xp = bot.user_xp.get(interaction.user.id, 0)
-    embed = discord.Embed(title=f"🏆 {interaction.user.name}'s XP", description=f"XP: {xp}", color=BOT_COLOR)
-    await interaction.response.send_message(embed=embed)
+# 5️⃣ Tech Quiz Game
+quiz_questions = {
+    "What does HTML stand for?": ["Hyper Text Markup Language", "High Tech Machine Learning", "Hyper Transfer Machine Logic"],
+    "Which language is used for backend development?": ["Python", "HTML", "CSS"],
+    "What is React?": ["A JavaScript Library", "A Database", "A Backend Framework"]
+}
+
+@bot.tree.command(name="quiz", description="Answer a random tech quiz question!")
+async def quiz(interaction: discord.Interaction):
+    question, options = random.choice(list(quiz_questions.items()))
+    correct_answer = options[0]
+    random.shuffle(options)
+
+    select = discord.ui.Select(placeholder=question, options=[discord.SelectOption(label=opt) for opt in options])
+
+    async def callback(interaction):
+        if interaction.data['values'][0] == correct_answer:
+            add_xp(interaction.user.id, 50)
+            response = "✅ Correct! (+50 XP)"
+        else:
+            response = f"❌ Wrong! The correct answer was **{correct_answer}**."
+
+        await interaction.response.send_message(response, ephemeral=True)
+
+    select.callback = callback
+    view = discord.ui.View()
+    view.add_item(select)
+    await interaction.response.send_message("🧠 **Tech Quiz Time!** Choose the correct answer:", view=view, ephemeral=True)
+
+
+# 7️⃣ Fun Games (Rock Paper Scissors)
+@bot.tree.command(name="rps", description="Play Rock Paper Scissors!")
+async def rps(interaction: discord.Interaction, choice: str):
+    options = ["rock", "paper", "scissors"]
+    bot_choice = random.choice(options)
+
+    result = "It's a draw!" if choice == bot_choice else (
+        "You win!" if (choice == "rock" and bot_choice == "scissors") or 
+                     (choice == "paper" and bot_choice == "rock") or 
+                     (choice == "scissors" and bot_choice == "paper") else "You lose!"
+    )
+
+    await interaction.response.send_message(f"🤖 Bot chose **{bot_choice}**. {result}", ephemeral=True)
 
 @bot.event
 async def on_message(message):
@@ -103,24 +174,6 @@ async def on_message(message):
     bot.user_xp[message.author.id] = bot.user_xp.get(message.author.id, 0) + 10
     await bot.process_commands(message)
 
-@bot.tree.command(name="quiz", description="Test your knowledge with a quiz!")
-async def quiz(interaction: discord.Interaction):
-    questions = {
-        "What does HTML stand for?": "Hyper Text Markup Language",
-        "What language is used for AI development?": "Python",
-    }
-    question, answer = random.choice(list(questions.items()))
-    embed = discord.Embed(title="🎯 Quiz Time!", description=question, color=BOT_COLOR)
-    await interaction.response.send_message(embed=embed)
-    
-    def check(msg):
-        return msg.author == interaction.user and msg.content.lower() == answer.lower()
-    
-    try:
-        msg = await bot.wait_for("message", check=check, timeout=30)
-        await msg.channel.send("✅ Correct Answer!")
-    except:
-        await msg.channel.send(f"❌ Time's up! The correct answer was: {answer}")
 
 @bot.tree.command(name="ask", description="Ask an AI-powered question!")
 async def ask(interaction: discord.Interaction, question: str):
@@ -250,4 +303,8 @@ async def on_message(message):
     
     await bot.process_commands(message)
 
-bot.run(TOKEN)
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT"))  
+    app.run(host="0.0.0.0", port=port)
+    bot.run(TOKEN)
